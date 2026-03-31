@@ -3,7 +3,7 @@ import copy
 import itertools
 import re
 
-def matchmaker(matrix, females, male_use, quarter):
+def matchmaker(matrix, females, male_use, quarter, candidate_count = 7):
     domains = {}
 
     #enforce unary conditions:
@@ -11,19 +11,25 @@ def matchmaker(matrix, females, male_use, quarter):
         female_table = matrix[[female]]
         #Remove inbreeding
         female_table = female_table.merge(male_use, how= "inner",left_on=female, right_on="Male")
-        #remove males spawned more than 4 times
+        #remove males spawned more than 4 times or that have been used too many times this season
         candidates = female_table[female_table["Uses"] < min(quarter+1, 4)][female]
         double_allowed = set(female_table[female_table["Uses"] <= 2][female])
 
         #add top candidates and find all valid combinations. 
-        candidates = candidates[0:9]
+        candidates = candidates[0:candidate_count-1]
+
         #filter domains for double jacks
         domains[female] = domain_jack_filter(list(itertools.combinations(candidates, 6)))
 
     initial_assignment = {female : [] for female in domains.keys()} 
 
     solutions = backtrack(initial_assignment, domains, double_allowed)
+    #Ensure that jacks do not make more than 5% of total pairings
     solutions = assignment_jack_filter(solutions)
+    #If no solutions are found with the current number of candidates, search again with 1 more candidate
+    if solutions == []:
+        print("Searching additional candidates")
+        solutions = matchmaker(matrix, females, male_use, quarter, candidate_count+1)
     solutions.sort(key = lambda sol:cost(sol, matrix))
     return solutions
 
